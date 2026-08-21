@@ -1,0 +1,151 @@
+import { useState } from 'react';
+import { Search, RefreshCw, Copy, CheckCircle, TrendingUp } from 'lucide-react';
+import { callAI } from '@/lib/supabase';
+import AIDisclaimer from './AIDisclaimer';
+
+const researchTypes = [
+  'Market Analysis',
+  'Neighborhood Profile',
+  'Comparable Sales (CMA)',
+  'Investment Potential',
+  'School District Report',
+  'Development Trends',
+  'Rental Market Overview',
+  'Buyer Demand Report',
+];
+
+export default function ResearchAssistant() {
+  const [query, setQuery] = useState('');
+  const [researchType, setResearchType] = useState('Market Analysis');
+  const [location, setLocation] = useState('');
+  const [output, setOutput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+
+  async function research() {
+    if (!query.trim()) return;
+    setLoading(true);
+    setError('');
+    setOutput('');
+    try {
+      const result = await callAI('research', { query, researchType, location });
+      setOutput(result);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function copyOutput() {
+    await navigator.clipboard.writeText(output);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Config */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-5">
+          <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-rose-500" />
+            Research Parameters
+          </h3>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">Research Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              {researchTypes.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setResearchType(t)}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all text-left ${
+                    researchType === t
+                      ? 'bg-rose-600 text-white border-rose-600'
+                      : 'border-gray-200 text-gray-600 hover:border-rose-300 hover:text-rose-600'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">
+              Location / Area <span className="text-gray-400">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Lakeview, Chicago IL or 60614"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-rose-500 placeholder-gray-400"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">Research Question</label>
+            <textarea
+              rows={4}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="e.g. What are the key investment drivers in this neighborhood? What price range is most in demand?"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-rose-500 resize-none placeholder-gray-400"
+            />
+          </div>
+
+          <button
+            onClick={research}
+            disabled={loading || !query.trim()}
+            className="w-full bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300 text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 text-sm transition-colors"
+          >
+            {loading ? (
+              <><RefreshCw className="w-4 h-4 animate-spin" /> Researching...</>
+            ) : (
+              <><Search className="w-4 h-4" /> Run Research</>
+            )}
+          </button>
+        </div>
+
+        {/* Output */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900 text-sm">Research Report</h3>
+            {output && (
+              <button onClick={copyOutput} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 transition-colors">
+                {copied ? <><CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+              </button>
+            )}
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+              <p className="text-xs text-red-600">{error}</p>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12">
+              <div className="w-8 h-8 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-gray-400">Analyzing market data...</p>
+            </div>
+          ) : output ? (
+            <div className="flex-1 bg-gray-50 rounded-lg p-4 text-sm text-gray-800 leading-relaxed whitespace-pre-wrap overflow-auto">
+              {output}
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center py-12 text-center">
+              <Search className="w-10 h-10 text-gray-200 mb-3" />
+              <p className="text-sm text-gray-400">Select a research type and enter your question</p>
+            </div>
+          )}
+
+          {output && <AIDisclaimer />}
+        </div>
+      </div>
+    </div>
+  );
+}
